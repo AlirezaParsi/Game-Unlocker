@@ -1,5 +1,5 @@
 plugins {
-    id 'com.android.application' version '7.4.1' apply false
+    id 'com.android.application' version '8.5.0' apply false // نسخه 8.0.0
 }
 
 task clean(type: Delete) {
