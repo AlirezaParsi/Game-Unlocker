@@ -18,10 +18,9 @@ public class GAMEUNLOCKER implements IXposedHookLoadPackage {
 
     private static final String TAG = "GAMEUNLOCKER";
     private static final Map<String, Map<String, String>> SPOOF_PROPS = new HashMap<>();
-    private volatile boolean keepSpoofing = true; // Flag to control the spoofing thread
+    private static volatile boolean moduleUnloaded = false;
 
     static {
-        // REDMAGIC 9
         SPOOF_PROPS.put("com.mobilelegends.mi", new HashMap<String, String>() {{
             put("BRAND", "ZTE"); put("DEVICE", "NX769J"); put("MANUFACTURER", "ZTE"); put("MODEL", "NX769J");
         }});
@@ -77,12 +76,10 @@ public class GAMEUNLOCKER implements IXposedHookLoadPackage {
             put("BRAND", "ZTE"); put("DEVICE", "NX769J"); put("MANUFACTURER", "ZTE"); put("MODEL", "NX769J");
         }});
 
-        // Black Shark 4
         SPOOF_PROPS.put("com.proximabeta.mf.uamo", new HashMap<String, String>() {{
             put("BRAND", "Black Shark"); put("DEVICE", "Black Shark 4"); put("MANUFACTURER", "Xiaomi"); put("MODEL", "2SM-X706B");
         }});
 
-        // Mi 11T Pro
         SPOOF_PROPS.put("com.ea.gp.apexlegendsmobilefps", new HashMap<String, String>() {{
             put("BRAND", "Xiaomi"); put("DEVICE", "Mi 11T PRO"); put("MANUFACTURER", "Xiaomi"); put("MODEL", "2107113SI");
         }});
@@ -96,7 +93,6 @@ public class GAMEUNLOCKER implements IXposedHookLoadPackage {
             put("BRAND", "Xiaomi"); put("DEVICE", "Mi 11T PRO"); put("MANUFACTURER", "Xiaomi"); put("MODEL", "2107113SI");
         }});
 
-        // Mi 13 Pro
         SPOOF_PROPS.put("com.levelinfinite.sgameGlobal", new HashMap<String, String>() {{
             put("BRAND", "Xiaomi"); put("DEVICE", "Mi 13 Pro"); put("MANUFACTURER", "Xiaomi"); put("MODEL", "2210132G");
         }});
@@ -122,7 +118,6 @@ public class GAMEUNLOCKER implements IXposedHookLoadPackage {
             put("BRAND", "Xiaomi"); put("DEVICE", "Mi 13 Pro"); put("MANUFACTURER", "Xiaomi"); put("MODEL", "2210132G");
         }});
 
-        // OnePlus 8 Pro
         SPOOF_PROPS.put("com.netease.lztgglobal", new HashMap<String, String>() {{
             put("BRAND", "OnePlus"); put("DEVICE", "OnePlus 8 PRO"); put("MANUFACTURER", "OnePlus"); put("MODEL", "IN2020");
         }});
@@ -136,7 +131,6 @@ public class GAMEUNLOCKER implements IXposedHookLoadPackage {
             put("BRAND", "OnePlus"); put("DEVICE", "OnePlus 8 PRO"); put("MANUFACTURER", "OnePlus"); put("MODEL", "IN2020");
         }});
 
-        // OnePlus 9 Pro
         SPOOF_PROPS.put("com.epicgames.fortnite", new HashMap<String, String>() {{
             put("BRAND", "OnePlus"); put("DEVICE", "OnePlus 9 PRO"); put("MANUFACTURER", "OnePlus"); put("MODEL", "LE2101");
         }});
@@ -147,12 +141,10 @@ public class GAMEUNLOCKER implements IXposedHookLoadPackage {
             put("BRAND", "OnePlus"); put("DEVICE", "OnePlus 9 PRO"); put("MANUFACTURER", "OnePlus"); put("MODEL", "LE2101");
         }});
 
-        // POCO F5
         SPOOF_PROPS.put("com.mobile.legends", new HashMap<String, String>() {{
             put("BRAND", "POCO"); put("DEVICE", "POCO F5"); put("MANUFACTURER", "Xiaomi"); put("MODEL", "23049PCD8G");
         }});
 
-        // ROG Phone
         SPOOF_PROPS.put("com.dts.freefireth", new HashMap<String, String>() {{
             put("BRAND", "Asus"); put("DEVICE", "ROG Phone"); put("MANUFACTURER", "Asus"); put("MODEL", "ASUS_Z01QD");
         }});
@@ -160,11 +152,10 @@ public class GAMEUNLOCKER implements IXposedHookLoadPackage {
             put("BRAND", "Asus"); put("DEVICE", "ROG Phone"); put("MANUFACTURER", "Asus"); put("MODEL", "ASUS_Z01QD");
         }});
 
-        // ROG Phone 6
         SPOOF_PROPS.put("com.ea.gp.fifamobile", new HashMap<String, String>() {{
             put("BRAND", "Asus"); put("DEVICE", "ROG Phone 6"); put("MANUFACTURER", "Asus"); put("MODEL", "ASUS_AI2201");
         }});
-        SPOOF_PROPS.put("com.gameloft.android.ANMP.GloftA8HM", new HashMap<String, String>() {{
+        SPOOF_PROPS.put("com.gameloft.android.ANMP.GloftA9HM", new HashMap<String, String>() {{
             put("BRAND", "Asus"); put("DEVICE", "ROG Phone 6"); put("MANUFACTURER", "Asus"); put("MODEL", "ASUS_AI2201");
         }});
         SPOOF_PROPS.put("com.madfingergames.legends", new HashMap<String, String>() {{
@@ -177,7 +168,6 @@ public class GAMEUNLOCKER implements IXposedHookLoadPackage {
             put("BRAND", "Asus"); put("DEVICE", "ROG Phone 6"); put("MANUFACTURER", "Asus"); put("MODEL", "ASUS_AI2201");
         }});
 
-        // Lenovo Tablet
         SPOOF_PROPS.put("com.activision.callofduty.shooter", new HashMap<String, String>() {{
             put("BRAND", "Lenovo"); put("DEVICE", "TB-9707F"); put("MANUFACTURER", "Lenovo"); put("MODEL", "Lenovo TB-9707F");
         }});
@@ -191,134 +181,282 @@ public class GAMEUNLOCKER implements IXposedHookLoadPackage {
             put("BRAND", "Lenovo"); put("DEVICE", "TB-9707F"); put("MANUFACTURER", "Lenovo"); put("MODEL", "Lenovo TB-9707F");
         }});
 
-        // Samsung S24 Ultra
         SPOOF_PROPS.put("com.ea.gp.fifamobile", new HashMap<String, String>() {{
             put("BRAND", "samsung"); put("DEVICE", "e3q"); put("MANUFACTURER", "samsung"); put("MODEL", "SM-S928B");
-        }}); // Note: Overlaps with ROG Phone 6, last entry wins
+        }});
     }
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) {
+        if (moduleUnloaded) {
+            XposedBridge.log("GAMEUNLOCKER: Module already unloaded, skipping");
+            return;
+        }
+
         String packageName = lpparam.packageName;
 
         if (SPOOF_PROPS.containsKey(packageName)) {
             try {
-                spoofBuildProperties(lpparam, packageName);
-                hideXposed(lpparam);
-                startSpoofingRepeater(packageName); // Start periodic spoofing
-                XposedBridge.log("Spoofing " + packageName + " with 5-second repetition and crash handling");
+                XposedBridge.log("GAMEUNLOCKER: Starting spoofing process for " + packageName);
+
+                performEarlySpoofing(lpparam, packageName);
+                performDeepHiding(lpparam);
+                performAdvancedSpoofing(lpparam, packageName);
+                initiateSelfDestruct(lpparam, packageName);
+                
+                XposedBridge.log("GAMEUNLOCKER: Spoofing pipeline completed for " + packageName);
+                
             } catch (Exception e) {
-                XposedBridge.log("Error initializing spoofing for " + packageName + ": " + Log.getStackTraceString(e));
+                XposedBridge.log("GAMEUNLOCKER: Critical error in spoofing pipeline: " + e.getMessage());
+                forceModuleUnload();
             }
         }
     }
 
-    private void spoofBuildProperties(XC_LoadPackage.LoadPackageParam lpparam, String packageName) {
+    private void performEarlySpoofing(XC_LoadPackage.LoadPackageParam lpparam, String packageName) {
         Map<String, String> props = SPOOF_PROPS.get(packageName);
-
-        // Initial static spoofing
-        setBuildProperties(props);
-
-        // Hook Build field getters
-        try {
-            XposedHelpers.findAndHookMethod("android.os.Build", lpparam.classLoader,
-                "getString", String.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        String key = (String) param.args[0];
-                        if (props.containsKey(key)) {
-                            param.setResult(props.get(key));
-                        }
-                    }
-                });
-        } catch (Exception e) {
-            XposedBridge.log("Failed to hook Build.getString for " + packageName + ": " + e.getMessage());
+        
+        for (Map.Entry<String, String> entry : props.entrySet()) {
+            setBuildFieldDirectly(entry.getKey(), entry.getValue());
         }
-
-        // Hook SystemProperties
-        try {
-            XposedHelpers.findAndHookMethod("android.os.SystemProperties", lpparam.classLoader,
-                "get", String.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        String key = (String) param.args[0];
-                        if ("ro.product.brand".equals(key)) param.setResult(props.get("BRAND"));
-                        if ("ro.product.manufacturer".equals(key)) param.setResult(props.get("MANUFACTURER"));
-                        if ("ro.product.device".equals(key)) param.setResult(props.get("DEVICE"));
-                        if ("ro.product.model".equals(key)) param.setResult(props.get("MODEL"));
-                    }
-                });
-        } catch (Exception e) {
-            XposedBridge.log("Failed to hook SystemProperties.get for " + packageName + ": " + e.getMessage());
-        }
+        
+        setBuildFieldDirectly("PRODUCT", props.get("DEVICE"));
+        setBuildFieldDirectly("FINGERPRINT", generateFingerprint(props));
+        
+        XposedBridge.log("GAMEUNLOCKER: Early spoofing completed for " + packageName);
     }
 
-    private void hideXposed(XC_LoadPackage.LoadPackageParam lpparam) {
-        try {
-            XposedHelpers.findAndHookMethod("java.lang.ClassLoader", lpparam.classLoader,
-                "loadClass", String.class, new XC_MethodHook() {
-                    @Override
-                    protected void beforeHookedMethod(MethodHookParam param) {
-                        String className = (String) param.args[0];
-                        if (className.contains("Xposed") || className.contains("de.robv")) {
-                            param.setThrowable(new ClassNotFoundException("Hidden"));
-                        }
+    private void performDeepHiding(XC_LoadPackage.LoadPackageParam lpparam) {
+        XposedHelpers.findAndHookMethod("java.lang.ClassLoader", lpparam.classLoader,
+            "loadClass", String.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    if (moduleUnloaded) return;
+                    
+                    String className = (String) param.args[0];
+                    if (className != null && isXposedRelatedClass(className)) {
+                        param.setThrowable(new ClassNotFoundException("Security violation: Class access denied"));
                     }
-                });
-        } catch (Exception e) {
-            XposedBridge.log("Failed to hook ClassLoader.loadClass: " + e.getMessage());
-        }
+                }
+            });
 
-        try {
-            XposedHelpers.findAndHookMethod("java.lang.Thread", lpparam.classLoader,
-                "getStackTrace", new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        StackTraceElement[] stack = (StackTraceElement[]) param.getResult();
-                        param.setResult(Arrays.stream(stack)
-                            .filter(e -> !e.getClassName().contains("Xposed"))
-                            .toArray(StackTraceElement[]::new));
+        XposedHelpers.findAndHookMethod("java.lang.Thread", lpparam.classLoader,
+            "getStackTrace", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) {
+                    if (moduleUnloaded) return;
+                    
+                    StackTraceElement[] stack = (StackTraceElement[]) param.getResult();
+                    StackTraceElement[] cleanedStack = Arrays.stream(stack)
+                        .filter(e -> !isXposedClassName(e.getClassName()))
+                        .toArray(StackTraceElement[]::new);
+                    param.setResult(cleanedStack);
+                }
+            });
+
+        XposedHelpers.findAndHookMethod("java.lang.Class", lpparam.classLoader,
+            "forName", String.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    if (moduleUnloaded) return;
+                    
+                    String className = (String) param.args[0];
+                    if (className != null && isXposedRelatedClass(className)) {
+                        param.setThrowable(new ClassNotFoundException("Class not accessible"));
                     }
-                });
-        } catch (Exception e) {
-            XposedBridge.log("Failed to hook Thread.getStackTrace: " + e.getMessage());
-        }
+                }
+            });
+
+        XposedHelpers.findAndHookMethod("java.io.File", lpparam.classLoader,
+            "exists", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    if (moduleUnloaded) return;
+                    
+                    String path = param.thisObject.toString();
+                    if (isSuspiciousPath(path)) {
+                        param.setResult(false);
+                    }
+                }
+            });
+
+        XposedBridge.log("GAMEUNLOCKER: Deep hiding mechanisms installed");
     }
 
-    private void startSpoofingRepeater(String packageName) {
-        Map<String, String> props = SPOOF_PROPS.get(packageName);
-        new Thread(() -> {
-            while (keepSpoofing) {
+    private void performAdvancedSpoofing(XC_LoadPackage.LoadPackageParam lpparam, String packageName) {
+        final Map<String, String> props = SPOOF_PROPS.get(packageName);
+
+        XposedHelpers.findAndHookMethod("android.os.Build", lpparam.classLoader,
+            "getString", String.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    if (moduleUnloaded) return;
+                    
+                    String key = (String) param.args[0];
+                    if (props.containsKey(key)) {
+                        param.setResult(props.get(key));
+                    }
+                }
+            });
+
+        XposedHelpers.findAndHookMethod("android.os.SystemProperties", lpparam.classLoader,
+            "get", String.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    if (moduleUnloaded) return;
+                    
+                    String key = (String) param.args[0];
+                    if ("ro.product.brand".equals(key)) param.setResult(props.get("BRAND"));
+                    else if ("ro.product.manufacturer".equals(key)) param.setResult(props.get("MANUFACTURER"));
+                    else if ("ro.product.device".equals(key)) param.setResult(props.get("DEVICE"));
+                    else if ("ro.product.model".equals(key)) param.setResult(props.get("MODEL"));
+                    else if ("ro.build.fingerprint".equals(key)) param.setResult(generateFingerprint(props));
+                    else if ("ro.build.product".equals(key)) param.setResult(props.get("DEVICE"));
+                    else if ("ro.product.name".equals(key)) param.setResult(props.get("PRODUCT"));
+                }
+            });
+
+        String[] buildFields = {"BRAND", "MANUFACTURER", "DEVICE", "MODEL", "PRODUCT", "FINGERPRINT"};
+        for (final String field : buildFields) {
+            if (props.containsKey(field) || field.equals("FINGERPRINT") || field.equals("PRODUCT")) {
                 try {
-                    setBuildProperties(props);
-                    XposedBridge.log("Reapplied spoofing for " + packageName);
-                    Thread.sleep(5000); // Repeat every 5 seconds
-                } catch (InterruptedException e) {
-                    XposedBridge.log("Spoofing thread interrupted for " + packageName);
-                    break;
+                    final String fieldValue = field.equals("FINGERPRINT") ? generateFingerprint(props) : 
+                                            field.equals("PRODUCT") ? props.get("DEVICE") : props.get(field);
+                    
+                    XposedHelpers.findAndHookMethod(Build.class, field, new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            if (moduleUnloaded) return;
+                            param.setResult(fieldValue);
+                        }
+                    });
                 } catch (Exception e) {
-                    XposedBridge.log("Error in spoofing repeater for " + packageName + ": " + e.getMessage());
-                    // Continue running despite error to avoid stopping the loop
                 }
             }
-        }).start();
+        }
+
+        XposedHelpers.findAndHookMethod("android.os.Build$VERSION", lpparam.classLoader,
+            "getRelease", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    if (moduleUnloaded) return;
+                    param.setResult("13");
+                }
+            });
+
+        XposedBridge.log("GAMEUNLOCKER: Advanced spoofing hooks installed for " + packageName);
     }
 
-    private void setBuildProperties(Map<String, String> props) {
-        for (Map.Entry<String, String> entry : props.entrySet()) {
+    private void initiateSelfDestruct(XC_LoadPackage.LoadPackageParam lpparam, String packageName) {
+        new Thread(() -> {
             try {
-                Field field = Build.class.getDeclaredField(entry.getKey());
-                field.setAccessible(true);
-                field.set(null, entry.getValue());
-                field.setAccessible(false);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                XposedBridge.log("Failed to set Build." + entry.getKey() + " to " + entry.getValue() + ": " + e.getMessage());
+                Thread.sleep(3000);
+                
+                XposedBridge.log("GAMEUNLOCKER: Starting self-destruct sequence for " + packageName);
+                
+                moduleUnloaded = true;
+                cleanupMemory();
+                clearAllReferences();
+                clearLogTraces();
+                
+                XposedBridge.log("GAMEUNLOCKER: Self-destruct completed for " + packageName);
+                
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                forceModuleUnload();
+            } catch (Exception e) {
+                forceModuleUnload();
             }
+        }, "SelfDestructThread-" + packageName).start();
+    }
+
+    private void cleanupMemory() {
+        try {
+            SPOOF_PROPS.clear();
+            System.gc();
+            System.runFinalization();
+            
+        } catch (Exception e) {
         }
     }
 
-    // Cleanup method (optional, not directly callable by Xposed, but good practice)
-    public void onPackageUnload() {
-        keepSpoofing = false; // Stop the thread when the package unloads
+    private void clearAllReferences() {
+        try {
+            Field[] fields = getClass().getDeclaredFields();
+            for (Field field : fields) {
+                if (!field.getName().equals("moduleUnloaded")) {
+                    field.setAccessible(true);
+                    if (!field.getType().isPrimitive()) {
+                        field.set(null, null);
+                    }
+                }
+            }
+        } catch (Exception e) {
+        }
+    }
+
+    private void clearLogTraces() {
+        try {
+        } catch (Exception e) {
+        }
+    }
+
+    private void forceModuleUnload() {
+        moduleUnloaded = true;
+        try {
+            SPOOF_PROPS.clear();
+            System.gc();
+        } catch (Exception e) {
+        }
+    }
+
+    private boolean isXposedRelatedClass(String className) {
+        return className.contains("Xposed") || 
+               className.contains("de.robv") ||
+               className.contains("xposed") ||
+               className.contains("XposedBridge") ||
+               className.contains("IXposedHook") ||
+               (className.contains("gameunlocker") && !className.contains("GAMEUNLOCKER"));
+    }
+
+    private boolean isXposedClassName(String className) {
+        return className.contains("Xposed") || 
+               className.contains("de.robv") ||
+               className.contains("xposed") ||
+               className.contains("GAMEUNLOCKER");
+    }
+
+    private boolean isSuspiciousPath(String path) {
+        return path.contains("xposed") ||
+               path.contains("Xposed") ||
+               path.contains("magisk") ||
+               path.contains("su") ||
+               path.contains("busybox");
+    }
+
+    private String generateFingerprint(Map<String, String> props) {
+        String brand = props.get("BRAND");
+        String device = props.get("DEVICE");
+        return brand + "/" + device + "/" + device + ":13/TQ3A.230805.001/eng.root.20231201:user/release-keys";
+    }
+
+    private static void setBuildFieldDirectly(String fieldName, String value) {
+        try {
+            Field field = Build.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(null, value);
+            field.setAccessible(false);
+        } catch (NoSuchFieldException e) {
+        } catch (Exception e) {
+            XposedBridge.log("GAMEUNLOCKER: Failed to set " + fieldName + ": " + e.getMessage());
+        }
+    }
+
+    public static boolean isModuleActive() {
+        return !moduleUnloaded;
+    }
+
+    public static void resetModule() {
+        moduleUnloaded = false;
     }
 }
